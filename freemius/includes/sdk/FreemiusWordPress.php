@@ -14,9 +14,6 @@
 	 * License for the specific language governing permissions and limitations
 	 * under the License.
 	 */
-    if ( ! defined( 'ABSPATH' ) ) {
-        exit;
-    }
 
 	require_once dirname( __FILE__ ) . '/FreemiusBase.php';
 
@@ -85,7 +82,10 @@
 		define( 'FS_API__SANDBOX_ADDRESS', '://sandbox-api.freemius.com' );
 	}
 
-	if ( ! class_exists( 'Freemius_Api_WordPress' ) ) {
+	if ( class_exists( 'Freemius_Api_WordPress' ) ) {
+		return;
+	}
+
 	class Freemius_Api_WordPress extends Freemius_Api_Base {
 		private static $_logger = array();
 
@@ -163,15 +163,6 @@
 		public static function SetHttp() {
 			self::$_protocol = 'http';
 		}
-
-        /**
-         * Sets API connection protocol to HTTPS.
-         *
-         * @since 2.5.4
-         */
-        public static function SetHttps() {
-            self::$_protocol = 'https';
-        }
 
 		/**
 		 * @since 1.0.4
@@ -311,11 +302,9 @@
 		 * @return mixed
 		 */
 		private static function ExecuteRequest( $pUrl, &$pWPRemoteArgs ) {
-            $bt = debug_backtrace();
-
 			$start = microtime( true );
 
-            $response = self::RemoteRequest( $pUrl, $pWPRemoteArgs );
+			$response = wp_remote_request( $pUrl, $pWPRemoteArgs );
 
 			if ( FS_API__LOGGER_ON ) {
 				$end = microtime( true );
@@ -335,37 +324,12 @@
 						$response['body'] :
 						json_encode( $response->get_error_messages() ),
 					'code'      => ! $is_http_error ? $response['response']['code'] : null,
-					'backtrace' => $bt,
+					'backtrace' => debug_backtrace(),
 				);
 			}
 
 			return $response;
 		}
-
-        /**
-         * @author Leo Fajardo (@leorw)
-         *
-         * @param string $pUrl
-         * @param array  $pWPRemoteArgs
-         *
-         * @return array|WP_Error The response array or a WP_Error on failure.
-         */
-        static function RemoteRequest( $pUrl, $pWPRemoteArgs ) {
-            $response = wp_remote_request( $pUrl, $pWPRemoteArgs );
-
-            if (
-                is_array( $response ) &&
-                (
-                    empty( $response['headers'] ) ||
-                    empty( $response['headers']['x-api-server'] )
-                )
-            ) {
-                // API is considered blocked if the response doesn't include the `x-api-server` header. When there's no error but this header doesn't exist, the response is usually not in the expected form (e.g., cannot be JSON-decoded).
-                $response = new WP_Error( 'api_blocked', htmlentities( $response['body'] ) );
-            }
-
-            return $response;
-        }
 
 		/**
 		 * @return array
@@ -473,12 +437,8 @@
 						 */
 						if ( filter_var( $matches[1], FILTER_VALIDATE_IP ) ) {
 							if ( strlen( inet_pton( $matches[1] ) ) === 16 ) {
-								/**
-								 * error_log('Invalid IPv6 configuration on server, Please disable or get native IPv6 on your server.');
-								 * Hook to an action triggered just before cURL is executed to resolve the IP version to v4.
-								 * 
-								 * @phpstan-ignore-next-line
-								 */
+//						    error_log('Invalid IPv6 configuration on server, Please disable or get native IPv6 on your server.');
+								// Hook to an action triggered just before cURL is executed to resolve the IP version to v4.
 								add_action( 'http_api_curl', 'Freemius_Api_WordPress::CurlResolveToIPv4', 10, 1 );
 
 								// Re-run request.
@@ -581,20 +541,28 @@
 		#region Connectivity Test
 		#----------------------------------------------------------------------------------
 
-        /**
-         * This method exists only for backward compatibility to prevent a fatal error from happening when called from an outdated piece of code.
-         *
-         * @param mixed $pPong
-         *
-         * @return bool
-         */
-        public static function Test( $pPong = null ) {
-            return (
-                is_object( $pPong ) &&
-                isset( $pPong->api ) &&
-                'pong' === $pPong->api
-            );
-        }
+		/**
+		 * If successful connectivity to the API endpoint using ping.json endpoint.
+		 *
+		 *      - OR -
+		 *
+		 * Validate if ping result object is valid.
+		 *
+		 * @param mixed $pPong
+		 *
+		 * @return bool
+		 */
+		public static function Test( $pPong = null ) {
+			$pong = is_null( $pPong ) ?
+				self::Ping() :
+				$pPong;
+
+			return (
+				is_object( $pong ) &&
+				isset( $pong->api ) &&
+				'pong' === $pong->api
+			);
+		}
 
 		/**
 		 * Ping API to test connectivity.
@@ -742,4 +710,3 @@
 
 		#endregion
 	}
-    }

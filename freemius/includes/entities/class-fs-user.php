@@ -31,6 +31,13 @@
 		 */
 		public $is_verified;
 		/**
+         * @author Leo Fajardo (@leorw)
+         * @since 2.3.0
+         *
+		 * @var bool
+		 */
+		public $is_beta;
+		/**
 		 * @var string|null
 		 */
 		public $customer_id;
@@ -58,16 +65,15 @@
 
         /**
          * @author Leo Fajardo (@leorw)
-         * @since 2.4.2
+         * @since 2.3.0
          *
          * @return bool
          */
-        function is_beta() {
-            // Return `false` since this is just for backward compatibility.
-            return false;
-        }
+		function is_beta() {
+			return ( isset( $this->is_beta ) && true === $this->is_beta );
+		}
 
-        static function get_type() {
+		static function get_type() {
 			return 'user';
 		}
 	}
